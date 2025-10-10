@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Weather Anomaly Detection</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #e0e7ff;
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        h1 {
+            font-weight: 800;
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            color: #c7d2fe;
+            text-shadow: 0 0 10px #8b5cf6;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: #e0e7ff;
+            gap: 0.5rem;
+            cursor: default;
+        }
+        .upload-section {
+            background-color: #1e293b;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .drop-zone {
+            border: 2px dashed #3b82f6;
+            border-radius: 0.5rem;
+            padding: 3rem;
+            min-height: 150px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.3s ease, background-color 0.3s ease;
+            background-color: #334155;
+        }
+        .drop-zone:hover {
+            border-color: #8b5cf6;
+            background-color: #475569;
+        }
+        .drop-zone.dragover {
+            border-color: #8b5cf6;
+            background-color: #475569;
+        }
+        .drop-zone p {
+            margin: 0;
+            font-size: 1.125rem;
+            color: #e0e7ff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+        }
+        .drop-zone p small {
+            font-size: 0.875rem;
+            color: #a5b4fc;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        button {
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            border: none;
+            border-radius: 0.75rem;
+            padding: 1rem 1.5rem;
+            color: white;
+            font-weight: 700;
+            font-size: 1.25rem;
+            cursor: pointer;
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.7);
+            transition: background 0.3s ease;
+        }
+        button:hover {
+            background: linear-gradient(90deg, #8b5cf6, #3b82f6);
+        }
+        #result {
+            margin-top: 2rem;
+            font-size: 1.125rem;
+            color: #a5b4fc;
+            min-height: 2rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="logo" style="position: absolute; top: 1rem; left: 1rem;">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" width="32" height="32" fill="#3b82f6" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L2 7v10l10 5 10-5V7l-10-5zM12 4.15l7.5 3.75v7.5L12 19.85 4.5 15.4v-7.5L12 4.15zM12 8.5l-3 3 3 3 3-3-3-3z"/>
+        </svg>
+        Anomaly Detection Platform
+    </div>
+    <button id="backBtn" style="position: absolute; top: 1rem; right: 1rem; padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer;">Back</button>
+    <h1 style="margin-top: 4rem; font-size: 1.75rem; font-weight: 700; color: #c7d2fe; margin-bottom: 2rem;">Weather Anomaly Detection</h1>
+    <div class="upload-section">
+        <div class="drop-zone" id="dropZone">
+            <p><svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" fill="#3b82f6"/></svg><br>Drag or drop your file here (CSV, PDF, or ZIP)<br><small>or click to select</small></p>
+        </div>
+        <input type="file" id="fileInput" aria-label="Upload weather data file for analysis (CSV, PDF, or ZIP)" />
+        <button id="analyzeBtn" aria-label="Analyze the uploaded weather anomaly data">Analyze Anomaly</button>
+        <div id="result" role="region" aria-live="polite"></div>
+    </div>
+
+    <script>
+        const trainFileInput = document.getElementById('trainFileInput');
+        const trainBtn = document.getElementById('trainBtn');
+        const trainResult = document.getElementById('trainResult');
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const resultDiv = document.getElementById('result');
+        const backBtn = document.getElementById('backBtn');
+
+        backBtn.addEventListener('click', () => {
+            window.location.href = 'select_anomaly.html';
+        });
+
+        dropZone.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                updateDropZoneText();
+            }
+        });
+
+        fileInput.addEventListener('change', () => {
+            updateDropZoneText();
+        });
+
+        function updateDropZoneText() {
+            if (fileInput.files.length) {
+                dropZone.innerHTML = `<p>Selected file: ${fileInput.files[0].name}</p>`;
+            } else {
+                dropZone.innerHTML = `<p><svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" fill="#3b82f6"/></svg><br>Drag or drop your file here (CSV, PDF, or ZIP)<br><small>or click to select</small></p>`;
+            }
+        }
+
+        analyzeBtn.addEventListener('click', async () => {
+            if (!fileInput.files.length) {
+                resultDiv.textContent = 'Please upload a data file before analyzing.';
+                return;
+            }
+            const file = fileInput.files[0];
+            resultDiv.textContent = 'Analyzing anomaly in file: ' + file.name + ' ...';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('http://localhost:8003/predict/weather', {
+                    method: 'POST',
+                    body: formData,
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    const res = data.result;
+                    // Store data and redirect to results page
+                    localStorage.setItem('anomalyType', 'weather');
+                    localStorage.setItem('resultData', JSON.stringify(res));
+                    window.location.href = 'anomaly_results.html';
+                } else {
+                    resultDiv.textContent = 'Error: ' + data.detail;
+                }
+            } catch (error) {
+                resultDiv.textContent = 'Error: ' + error.message;
+            }
+        });
+    </script>
+</body>
+</html>

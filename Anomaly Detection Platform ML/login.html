@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Login - Anomaly Detection Platform</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background: #0f172a;
+            color: #e0e7ff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .login-container {
+            background: #1e293b;
+            padding: 2rem 3rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.7);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        h1 {
+            margin-bottom: 1.5rem;
+            font-weight: 700;
+            font-size: 1.75rem;
+            color: #c7d2fe;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        input[type="email"],
+        input[type="password"] {
+            padding: 0.75rem 1rem;
+            border-radius: 0.375rem;
+            border: none;
+            font-size: 1rem;
+            outline: none;
+        }
+        input[type="email"] {
+            background: #334155;
+            color: #e0e7ff;
+        }
+        input[type="password"] {
+            background: #334155;
+            color: #e0e7ff;
+        }
+        button {
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            border: none;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            color: white;
+            font-weight: 600;
+            font-size: 1.125rem;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        button:hover {
+            background: linear-gradient(90deg, #2563eb, #7c3aed);
+        }
+        .continue-without {
+            margin-top: 1rem;
+            background: transparent;
+            border: 2px solid #3b82f6;
+            color: #3b82f6;
+            font-weight: 600;
+            border-radius: 0.5rem;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+        .continue-without:hover {
+            background: #3b82f6;
+            color: white;
+        }
+        .google-btn {
+            margin-top: 1.5rem;
+            background: white;
+            color: #444;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            transition: background 0.3s ease;
+        }
+        .google-btn:hover {
+            background: #f1f1f1;
+        }
+        .google-icon {
+            width: 20px;
+            height: 20px;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: #e0e7ff;
+            gap: 0.5rem;
+            cursor: default;
+        }
+        .logo svg {
+            width: 32px;
+            height: 32px;
+            fill: #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="logo" aria-label="Anomaly Detection Platform Logo" style="position: absolute; top: 1rem; left: 1rem;">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 2L2 7v10l10 5 10-5V7l-10-5zM12 4.15l7.5 3.75v7.5L12 19.85 4.5 15.4v-7.5L12 4.15zM12 8.5l-3 3 3 3 3-3-3-3z"/>
+        </svg>
+        Anomaly Detection Platform
+    </div>
+    <div class="login-container" role="main" aria-label="Login form">
+        <h1>Sign In</h1>
+        <form id="login-form">
+            <input type="email" name="email" placeholder="Email" aria-label="Email" required />
+            <input type="password" name="password" placeholder="Password" aria-label="Password" required />
+            <button type="submit">Sign In</button>
+        </form>
+
+        <div style="margin-top: 1rem; display: flex; justify-content: center; gap: 1rem; font-size: 0.9rem;">
+            <span style="color: #a5b4fc;">Don't have an account?</span>
+            <a href="#" id="signup-link" style="color: #3b82f6; font-weight: 600; text-decoration: none;" aria-label="Sign Up">Sign Up</a>
+            <a href="#" id="forgot-password-link" style="color: #3b82f6; font-weight: 600; text-decoration: none;" aria-label="Forgot Password?">Forgot Password?</a>
+        </div>
+        <button id="continue-without-btn" class="continue-without" aria-label="Continue without signing in" style="margin-top: 1.5rem; position: relative;">
+            Continue without Sign In
+            <span id="guest-trial-info" style="display: block; font-size: 0.8rem; color: #a5b4fc; font-weight: 600; user-select: none;"></span>
+        </button>
+        <button class="google-btn" aria-label="Continue with Google" style="margin-top: 1rem; width: 100%; justify-content: center;">
+            <svg class="google-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 533.5 544.3" aria-hidden="true" focusable="false">
+                <path fill="#4285f4" d="M533.5 278.4c0-18.5-1.5-36.3-4.3-53.6H272v101.3h146.9c-6.3 34-25.4 62.8-54.3 82v68h87.7c51.3-47.3 81.2-116.8 81.2-197.7z"/>
+                <path fill="#34a853" d="M272 544.3c73.7 0 135.6-24.4 180.8-66.3l-87.7-68c-24.3 16.3-55.4 26-93.1 26-71.5 0-132-48.3-153.6-113.1H29.6v70.9C74.6 485.7 167.6 544.3 272 544.3z"/>
+                <path fill="#fbbc04" d="M118.4 324.9c-10.7-31.7-10.7-65.9 0-97.6v-70.9H29.6c-38.6 75.3-38.6 164.7 0 240l88.8-71.5z"/>
+                <path fill="#ea4335" d="M272 213.7c39.9 0 75.7 13.7 103.9 40.7l77.8-77.8C405.6 130.3 344.1 104 272 104 167.6 104 74.6 162.6 29.6 243.8l88.8 70.9c21.6-64.8 82.1-113.1 153.6-113.1z"/>
+            </svg>
+            Continue with Google
+        </button>
+        <a href="index.html" aria-label="Back to Home" style="position: absolute; top: 1rem; right: 1rem; color: #e0e7ff; font-weight: 400; text-decoration: none; font-size: 1rem;">Back to Home</a>
+    </div>
+    <script type="module">
+        import { auth, db } from './firebase-init.js';
+        import { createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+        import { doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+
+        const loginForm = document.getElementById('login-form');
+        const continueWithoutBtn = document.getElementById('continue-without-btn');
+        const signupLink = document.getElementById('signup-link');
+        const heading = document.querySelector('h1');
+        const submitBtn = loginForm.querySelector('button[type="submit"]');
+        const googleBtn = document.querySelector('.google-btn');
+
+        const provider = new GoogleAuthProvider();
+
+        let isSignUpMode = false;
+        let isSubmitting = false;
+
+        signupLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            isSignUpMode = !isSignUpMode;
+            if (isSignUpMode) {
+                heading.textContent = 'Sign Up';
+                submitBtn.textContent = 'Sign Up';
+                signupLink.textContent = 'Already have an account? Sign In';
+            } else {
+                heading.textContent = 'Sign In';
+                submitBtn.textContent = 'Sign In';
+                signupLink.textContent = 'Sign Up';
+            }
+        });
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (isSubmitting) {
+                console.log('Form submission already in progress, ignoring...');
+                return;
+            }
+
+            isSubmitting = true;
+            submitBtn.disabled = true;
+            submitBtn.textContent = isSignUpMode ? 'Creating Account...' : 'Signing In...';
+
+            try {
+                // Clear local storage and session storage to avoid caching issues
+                localStorage.clear();
+                sessionStorage.clear();
+
+                const email = loginForm.email.value;
+                const password = loginForm.password.value;
+
+                if (isSignUpMode) {
+                    console.log('Attempting email/password signup for:', email);
+                    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                    console.log('User created with email:', userCredential.user.email);
+                    console.log('User UID:', userCredential.user.uid);
+
+                    // Save user data to Firestore asynchronously without blocking signup flow
+                    setDoc(doc(db, "users", userCredential.user.uid), {
+                        email: userCredential.user.email,
+                        createdAt: serverTimestamp()
+                    }).then(() => {
+                        console.log('User data saved to Firestore successfully');
+                    }).catch((firestoreError) => {
+                        console.error('Error saving user data to Firestore:', firestoreError);
+                        // Do not alert user to avoid blocking signup flow
+                    });
+
+                    localStorage.setItem('isGuest', 'false');
+                    alert('Success: Account created successfully! Welcome ' + userCredential.user.email);
+                    console.log('Redirecting to select_anomaly.html...');
+                    window.location.href = 'select_anomaly.html';
+                } else {
+                    console.log('Attempting email/password login for:', email);
+                    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                    console.log('Email/password login successful for:', userCredential.user.email);
+                    localStorage.setItem('isGuest', 'false');
+                    alert('Success: Login successful! Welcome ' + userCredential.user.email);
+                    console.log('Redirecting to select_anomaly.html...');
+                    window.location.href = 'select_anomaly.html';
+                }
+            } catch (error) {
+                console.error('Authentication failed:', error);
+                if (error.code === 'auth/email-already-in-use') {
+                    if (isSignUpMode) {
+                        alert('Error: This email is already registered. Please sign in instead.');
+                    } else {
+                        alert('Authentication failed: ' + error.message);
+                    }
+                } else if (error.code === 'auth/invalid-email') {
+                    alert('Error: The email address is not valid.');
+                } else if (error.code === 'auth/weak-password') {
+                    alert('Error: The password is too weak. Please use at least 6 characters.');
+                } else if (error.code === 'auth/user-not-found') {
+                    alert('Error: No user found with this email. Please sign up first.');
+                } else if (error.code === 'auth/wrong-password') {
+                    alert('Error: Incorrect password. Please try again.');
+                } else {
+                    alert('Authentication failed: ' + error.message);
+                }
+            } finally {
+                isSubmitting = false;
+                submitBtn.disabled = false;
+                submitBtn.textContent = isSignUpMode ? 'Sign Up' : 'Sign In';
+            }
+        });
+
+        let googleSignInInProgress = false;
+        googleBtn.addEventListener('click', async () => {
+            if (googleSignInInProgress) {
+                console.warn('Google sign-in already in progress.');
+                return;
+            }
+            googleSignInInProgress = true;
+            try {
+                console.log('Attempting Google sign-in...');
+                const result = await signInWithPopup(auth, provider);
+                const user = result.user;
+                console.log('Google sign-in successful for:', user.email);
+                localStorage.setItem('isGuest', 'false');
+                alert('Google sign-in successful! Welcome ' + user.email);
+                window.location.href = 'select_anomaly.html';
+            } catch (error) {
+                console.error('Google sign-in error:', error);
+                alert('Google sign-in failed: ' + error.message);
+            } finally {
+                googleSignInInProgress = false;
+            }
+        });
+
+        continueWithoutBtn.addEventListener('click', () => {
+            let guestAccessCount = parseInt(localStorage.getItem('guestAccessCount') || '0');
+            if (guestAccessCount >= 3) {
+                alert('You have reached the maximum number of guest accesses. Please sign up to continue.');
+                return;
+            }
+            guestAccessCount++;
+            localStorage.setItem('guestAccessCount', guestAccessCount.toString());
+            localStorage.setItem('isGuest', 'true');
+            window.location.href = 'select_anomaly.html';
+        });
+
+        // Show remaining guest trials next to the button
+        const guestTrialInfo = document.getElementById('guest-trial-info');
+        function updateGuestTrialInfo() {
+            const count = parseInt(localStorage.getItem('guestAccessCount') || '0');
+            const remaining = 3 - count;
+            if (remaining > 0) {
+                guestTrialInfo.textContent = `(${remaining} trial${remaining > 1 ? 's' : ''} left)`;
+            } else {
+                guestTrialInfo.textContent = '(No trials left)';
+            }
+        }
+        updateGuestTrialInfo();
+
+        const forgotPasswordLink = document.getElementById('forgot-password-link');
+        forgotPasswordLink.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const email = prompt('Please enter your email address for password reset:');
+            if (!email) {
+                alert('Email is required for password reset.');
+                return;
+            }
+            try {
+                await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js').then(({ sendPasswordResetEmail }) => {
+                    return sendPasswordResetEmail(auth, email);
+                });
+                alert('Password reset email sent! Please check your inbox.');
+            } catch (error) {
+                console.error('Password reset error:', error);
+                alert('Failed to send password reset email: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html>

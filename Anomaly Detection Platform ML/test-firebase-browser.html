@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Services Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        button { margin: 5px; padding: 10px 15px; cursor: pointer; }
+        #results { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Firebase Services Test</h1>
+
+    <div id="auth-status" class="test-section">
+        <h3>Authentication Status</h3>
+        <p id="auth-info">Checking...</p>
+    </div>
+
+    <div class="test-section">
+        <h3>Firestore Test</h3>
+        <button onclick="testFirestore()">Test Firestore Write/Read</button>
+        <div id="firestore-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Storage Test</h3>
+        <input type="file" id="file-input" accept="image/*">
+        <button onclick="testStorage()">Test Storage Upload</button>
+        <div id="storage-result"></div>
+    </div>
+
+    <div id="results">
+        <h3>Test Results</h3>
+        <pre id="test-output"></pre>
+    </div>
+
+    <script type="module">
+        import { auth, db, storage } from './firebase-init.js';
+        import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+        import { collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+        import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-storage.js";
+
+        const authInfo = document.getElementById('auth-info');
+        const firestoreResult = document.getElementById('firestore-result');
+        const storageResult = document.getElementById('storage-result');
+        const testOutput = document.getElementById('test-output');
+
+        let testResults = [];
+
+        function logResult(test, success, message) {
+            testResults.push(`${test}: ${success ? 'PASS' : 'FAIL'} - ${message}`);
+            testOutput.textContent = testResults.join('\n');
+        }
+
+        // Check authentication state
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                authInfo.textContent = `Logged in as: ${user.email}`;
+                authInfo.parentElement.classList.add('success');
+                logResult('Auth State', true, `User: ${user.email}`);
+            } else {
+                authInfo.textContent = 'Not logged in';
+                authInfo.parentElement.classList.add('error');
+                logResult('Auth State', false, 'No user logged in');
+            }
+        });
+
+        // Test Firestore
+        window.testFirestore = async function() {
+            try {
+                firestoreResult.textContent = 'Testing Firestore...';
+                firestoreResult.parentElement.classList.remove('success', 'error');
+
+                // Write test data
+                const testData = {
+                    test: 'firebase-integration',
+                    timestamp: new Date(),
+                    userAgent: navigator.userAgent
+                };
+
+                const docRef = await addDoc(collection(db, "test-collection"), testData);
+                logResult('Firestore Write', true, `Document written with ID: ${docRef.id}`);
+
+                // Read test data
+                const querySnapshot = await getDocs(collection(db, "test-collection"));
+                let docCount = 0;
+                querySnapshot.forEach((doc) => {
+                    docCount++;
+                });
+
+                firestoreResult.textContent = `Success! Wrote and read ${docCount} documents`;
+                firestoreResult.parentElement.classList.add('success');
+                logResult('Firestore Read', true, `Found ${docCount} documents`);
+
+            } catch (error) {
+                firestoreResult.textContent = `Error: ${error.message}`;
+                firestoreResult.parentElement.classList.add('error');
+                logResult('Firestore Test', false, error.message);
+            }
+        };
+
+        // Test Storage
+        window.testStorage = async function() {
+            try {
+                const fileInput = document.getElementById('file-input');
+                if (!fileInput.files[0]) {
+                    alert('Please select a file first');
+                    return;
+                }
+
+                storageResult.textContent = 'Uploading file...';
+                storageResult.parentElement.classList.remove('success', 'error');
+
+                const file = fileInput.files[0];
+                const storageRef = ref(storage, `test-uploads/${Date.now()}-${file.name}`);
+
+                const snapshot = await uploadBytes(storageRef, file);
+                const downloadURL = await getDownloadURL(snapshot.ref);
+
+                storageResult.textContent = `Success! File uploaded. Download URL: ${downloadURL}`;
+                storageResult.parentElement.classList.add('success');
+                logResult('Storage Upload', true, `File uploaded: ${file.name}`);
+
+            } catch (error) {
+                storageResult.textContent = `Error: ${error.message}`;
+                storageResult.parentElement.classList.add('error');
+                logResult('Storage Test', false, error.message);
+            }
+        };
+
+        // Initial test
+        logResult('Firebase Init', true, 'Firebase services imported successfully');
+    </script>
+</body>
+</html>

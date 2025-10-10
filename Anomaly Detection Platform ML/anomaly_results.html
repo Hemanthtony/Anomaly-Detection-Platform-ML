@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Anomaly Detection Results</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background-color: #0b1120;
+      color: #e0e7ff;
+      display: flex;
+      min-height: 100vh;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+    }
+    header {
+      width: 100%;
+      max-width: 1200px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+    header h1 {
+      color: #22d3ee;
+      font-weight: 700;
+      font-size: 2.5rem;
+      letter-spacing: 0.05em;
+      margin: 0;
+    }
+    header button {
+      background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+      border: none;
+      border-radius: 0.75rem;
+      padding: 0.75rem 1.5rem;
+      color: white;
+      font-weight: 700;
+      font-size: 1.125rem;
+      cursor: pointer;
+      box-shadow: 0 6px 16px rgba(59, 130, 246, 0.7);
+      transition: background 0.3s ease;
+    }
+    header button:hover {
+      background: linear-gradient(90deg, #8b5cf6, #3b82f6);
+    }
+    .subtitle {
+      max-width: 1200px;
+      font-size: 1.25rem;
+      color: #94a3b8;
+      margin-bottom: 2rem;
+      font-weight: 500;
+    }
+    .charts-container {
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+      max-width: 1200px;
+      margin-bottom: 3rem;
+      justify-content: center;
+    }
+    .chart-box {
+      background: #1e293b;
+      padding: 1.5rem 2rem;
+      border-radius: 1rem;
+      box-shadow: 0 6px 18px rgba(59, 130, 246, 0.5);
+      flex: 1 1 350px;
+      min-width: 350px;
+      max-width: 45%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .chart-box h3 {
+      color: #22d3ee;
+      margin-top: 0;
+      margin-bottom: 1.25rem;
+      font-weight: 700;
+      font-size: 1.5rem;
+      letter-spacing: 0.03em;
+      text-align: center;
+    }
+    canvas {
+      max-width: 100%;
+      height: 250px !important;
+    }
+    .anomaly-list {
+      background: #1e293b;
+      border-radius: 1rem;
+      padding: 2rem;
+      box-shadow: 0 6px 18px rgba(59, 130, 246, 0.5);
+      max-width: 1200px;
+      width: 100%;
+      max-height: 350px;
+      overflow-y: auto;
+    }
+    .anomaly-list h3 {
+      color: #22d3ee;
+      margin-bottom: 1rem;
+      font-weight: 700;
+      font-size: 1.75rem;
+      letter-spacing: 0.03em;
+      text-align: center;
+    }
+    .anomaly-list ul {
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+    }
+    .anomaly-list li {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #334155;
+      color: #cbd5e1;
+      font-size: 1.125rem;
+      transition: background-color 0.3s ease;
+      cursor: default;
+    }
+    .anomaly-list li:hover {
+      background-color: #334155;
+    }
+    .anomaly-list li:last-child {
+      border-bottom: none;
+    }
+    @media (max-width: 900px) {
+      .charts-container {
+        flex-direction: column;
+        align-items: center;
+      }
+      .chart-box {
+        max-width: 100%;
+      }
+      header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: center;
+      }
+      header button {
+        width: 100%;
+        max-width: 300px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Anomaly Detection Results</h1>
+    <div style="display: flex; gap: 1rem;">
+    <button onclick="downloadPdfReport()">Download PDF Report</button>
+      <button onclick="newAnalysis()">New Analysis</button>
+    </div>
+  </header>
+  <p class="subtitle">Visualizations and detected anomalies summary</p>
+  <section class="charts-container" aria-label="Anomaly detection charts">
+    <div class="chart-box" role="region" aria-labelledby="lineChartTitle">
+      <h3 id="lineChartTitle">Line Graph - Anomaly Scores Over Time</h3>
+      <canvas id="lineChart" aria-describedby="lineChartDesc"></canvas>
+      <p id="lineChartDesc" class="sr-only">Line graph showing anomaly scores over time</p>
+    </div>
+    <div class="chart-box" role="region" aria-labelledby="barChartTitle">
+      <h3 id="barChartTitle">Bar Graph - Anomaly Counts by Type</h3>
+      <canvas id="barChart" aria-describedby="barChartDesc"></canvas>
+      <p id="barChartDesc" class="sr-only">Bar graph showing counts of anomalies by type</p>
+    </div>
+    <div class="chart-box" role="region" aria-labelledby="pieChartTitle">
+      <h3 id="pieChartTitle">Pie Chart - Anomaly Distribution</h3>
+      <canvas id="pieChart" aria-describedby="pieChartDesc"></canvas>
+      <p id="pieChartDesc" class="sr-only">Pie chart showing distribution of anomaly types</p>
+    </div>
+  </section>
+  <section class="anomaly-list" aria-label="List of detected anomalies">
+    <h3>Detected Anomalies</h3>
+    <ul id="anomalyList" tabindex="0">
+      <!-- Anomaly items will be populated here -->
+    </ul>
+  </section>
+
+  <section class="data-input" style="background: #1e293b; border-radius: 1rem; padding: 2rem; box-shadow: 0 6px 18px rgba(59, 130, 246, 0.5); max-width: 1200px; width: 100%; margin-top: 2rem;">
+    <h3 style="color: #22d3ee; margin-bottom: 1rem; font-weight: 700; font-size: 1.75rem; letter-spacing: 0.03em; text-align: center;">Manual Data Input</h3>
+    <form id="dataForm">
+      <div id="inputFields">
+        <!-- Dynamic fields based on anomaly type -->
+      </div>
+      <button type="submit" style="background: linear-gradient(90deg, #3b82f6, #8b5cf6); border: none; border-radius: 0.75rem; padding: 0.75rem 1.5rem; color: white; font-weight: 700; font-size: 1.125rem; cursor: pointer; box-shadow: 0 6px 16px rgba(59, 130, 246, 0.7); transition: background 0.3s ease;">Send Data</button>
+    </form>
+  </section>
+
+  <script>
+    // Get data from localStorage
+    const anomalyType = localStorage.getItem('anomalyType') || 'network';
+    const resultData = JSON.parse(localStorage.getItem('resultData')) || {};
+
+    let anomalies = [];
+    let anomalyCounts = { 'Point Anomalies': 0, 'Contextual Anomalies': 0, 'Collective Anomalies': 0, 'Novelty Detection': 0 };
+
+    const typeMapping = {
+      'Point Anomaly': 'Point Anomalies',
+      'Contextual Anomaly': 'Contextual Anomalies',
+      'Collective Anomaly': 'Collective Anomalies',
+      'Novelty Detection': 'Novelty Detection'
+    };
+
+    if (anomalyType === 'pdf') {
+      anomalies = resultData.anomalies || [];
+      // Count by type
+      anomalies.forEach(anomaly => {
+        const mappedType = typeMapping[anomaly.type] || anomaly.type;
+        if (anomalyCounts.hasOwnProperty(mappedType)) {
+          anomalyCounts[mappedType]++;
+        }
+      });
+    } else {
+      // For network, weather, spam
+      anomalies = [];
+      Object.keys(resultData).forEach(type => {
+        if (Array.isArray(resultData[type])) {
+          anomalyCounts[type] = resultData[type].length;
+          resultData[type].forEach(desc => {
+            anomalies.push({ type, description: desc });
+          });
+        } else {
+          anomalyCounts[type] = 0;
+        }
+      });
+    }
+
+    // Chart instances
+    let lineChart, barChart, pieChart;
+
+    function createCharts() {
+      const lineCtx = document.getElementById('lineChart').getContext('2d');
+      lineChart = new Chart(lineCtx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'Anomaly Scores',
+            data: [],
+            borderColor: '#06b6d4',
+            backgroundColor: 'rgba(6, 182, 212, 0.1)',
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+
+      const barCtx = document.getElementById('barChart').getContext('2d');
+      barChart = new Chart(barCtx, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(anomalyCounts),
+          datasets: [{
+            label: 'Anomaly Count',
+            data: Object.values(anomalyCounts),
+            backgroundColor: '#06b6d4'
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+
+      const pieCtx = document.getElementById('pieChart').getContext('2d');
+      pieChart = new Chart(pieCtx, {
+        type: 'pie',
+        data: {
+          labels: Object.keys(anomalyCounts),
+          datasets: [{
+            data: Object.values(anomalyCounts),
+            backgroundColor: ['#06b6d4', '#22d3ee', '#a78bfa', '#f87171']
+          }]
+        },
+        options: {
+          responsive: true
+        }
+      });
+    }
+
+    function updateCharts(score, type) {
+      // Update line chart
+      if (lineChart.data.labels.length >= 20) {
+        lineChart.data.labels.shift();
+        lineChart.data.datasets[0].data.shift();
+      }
+      const newLabel = new Date().toLocaleTimeString();
+      lineChart.data.labels.push(newLabel);
+      lineChart.data.datasets[0].data.push(score);
+      lineChart.update();
+
+      // Update bar chart and pie chart counts
+      anomalyCounts[type] = (anomalyCounts[type] || 0) + 1;
+      barChart.data.datasets[0].data = Object.values(anomalyCounts);
+      barChart.update();
+
+      pieChart.data.datasets[0].data = Object.values(anomalyCounts);
+      pieChart.update();
+    }
+
+    function addAnomalyToList(type, description) {
+      const anomalyList = document.getElementById('anomalyList');
+      const li = document.createElement('li');
+      li.textContent = `${type}: ${description}`;
+      anomalyList.appendChild(li);
+    }
+
+    createCharts();
+
+    // Populate anomaly list with initial data
+    anomalies.forEach(anomaly => {
+      addAnomalyToList(anomaly.type, anomaly.description);
+    });
+
+    if (anomalyType === 'pdf') {
+      // Populate line chart with sample scores for each anomaly
+      anomalies.forEach((anomaly, index) => {
+        const score = Math.random() * 2 - 1; // random score between -1 and 1
+        const label = `Anomaly ${index + 1}`;
+        lineChart.data.labels.push(label);
+        lineChart.data.datasets[0].data.push(score);
+      });
+      lineChart.update();
+    } else {
+      // WebSocket for real-time anomaly detection
+      const wsProtocol = location.protocol === 'https:' ? 'wss' : 'ws';
+      const ws = new WebSocket(`${wsProtocol}://${location.host}/ws/anomaly/${anomalyType}`);
+
+      ws.onopen = () => {
+        console.log('WebSocket connection opened');
+        // For demo, send random data every 3 seconds
+        setInterval(() => {
+          let dataToSend;
+          if (anomalyType === 'spam') {
+            const texts = ['This is a normal message', 'Buy cheap products now spam', 'Hello world', 'Spam offer just for you'];
+            const randomText = texts[Math.floor(Math.random() * texts.length)];
+            dataToSend = { text: randomText };
+          } else {
+            // Send random features array of length 3 for network and weather
+            const features = Array.from({ length: 3 }, () => Math.random() * 10);
+            dataToSend = { features };
+          }
+          ws.send(JSON.stringify(dataToSend));
+        }, 3000);
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.error) {
+          console.error('Error from server:', data.error);
+          return;
+        }
+        console.log('Received:', data);
+        const type = anomalyType.charAt(0).toUpperCase() + anomalyType.slice(1);
+        updateCharts(data.score, type);
+        if (data.is_anomaly) {
+          addAnomalyToList(type, data.details);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket connection closed');
+      };
+    }
+
+    // Create input fields based on anomaly type
+    const inputFields = document.getElementById('inputFields');
+    if (anomalyType === 'spam') {
+      inputFields.innerHTML = `
+        <label for="textInput" style="display: block; margin-bottom: 0.5rem; color: #e0e7ff;">Text:</label>
+        <input type="text" id="textInput" placeholder="Enter text to check for spam" style="width: 100%; padding: 0.5rem; border: 1px solid #334155; border-radius: 0.5rem; background: #1e293b; color: #e0e7ff;" required>
+      `;
+    } else {
+      inputFields.innerHTML = `
+        <label style="display: block; margin-bottom: 0.5rem; color: #e0e7ff;">Features (comma-separated numbers):</label>
+        <input type="text" id="featuresInput" placeholder="e.g., 1.2, 3.4, 5.6, 7.8, 9.0" style="width: 100%; padding: 0.5rem; border: 1px solid #334155; border-radius: 0.5rem; background: #1e293b; color: #e0e7ff;" required>
+      `;
+    }
+
+    // Handle form submission
+    if (anomalyType !== 'pdf') {
+      document.getElementById('dataForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        let dataToSend;
+        if (anomalyType === 'spam') {
+          const text = document.getElementById('textInput').value;
+          dataToSend = { text };
+        } else {
+          const featuresStr = document.getElementById('featuresInput').value;
+          const features = featuresStr.split(',').map(f => parseFloat(f.trim())).filter(f => !isNaN(f));
+          if (features.length === 0) {
+            alert('Please enter valid numbers separated by commas.');
+            return;
+          }
+          dataToSend = { features };
+        }
+        ws.send(JSON.stringify(dataToSend));
+      });
+    }
+
+    async function downloadPdfReport() {
+      try {
+        const response = await fetch('/generate/pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ anomalyType, resultData, anomalies })
+        });
+        if (!response.ok) {
+          throw new Error('Failed to generate PDF');
+        }
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `anomaly_report_${anomalyType}.pdf`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error('Error downloading PDF:', error);
+        alert('Failed to download PDF report. Please try again.');
+      }
+    }
+
+    function newAnalysis() {
+      localStorage.clear();
+      window.location.href = 'select_anomaly.html';
+    }
+
+    function backToHome() {
+      window.location.href = 'index.html';
+    }
+  </script>
+</body>
+</html>
