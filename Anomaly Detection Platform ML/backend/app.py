@@ -14,13 +14,13 @@ import joblib
 import io
 import json
 import numpy as np
-from .mongo_storage import save_model_file, get_model_file
+from mongo_storage import save_model_file, get_model_file
 
 from models.network_anomaly import train_network_model, predict_network_anomaly
 from models.weather_anomaly import train_weather_model, predict_weather_anomaly
 from models.spam_detection import train_spam_model, predict_spam
 
-from .generate_pdf import generate_anomaly_report_pdf
+from generate_pdf import generate_anomaly_report_pdf
 
 from fastapi.staticfiles import StaticFiles
 
@@ -72,13 +72,7 @@ for anomaly_type in ["network", "weather", "spam"]:
         model_path = os.path.join(MODEL_DIR, f"{anomaly_type}_model.joblib")
         if os.path.exists(model_path):
             loaded_model = joblib.load(model_path)
-            # Fix for spam model being a tuple instead of model object
-            if anomaly_type == "spam" and isinstance(loaded_model, tuple):
-                # Assume the first element is the actual model
-                models[anomaly_type] = loaded_model[0]
-                print(f"Loaded spam model corrected from tuple for: {model_path}")
-            else:
-                models[anomaly_type] = loaded_model
+            models[anomaly_type] = loaded_model
             print(f"Loaded {anomaly_type} model from local: {model_path}")
             if hasattr(models[anomaly_type], 'feature_names_in_'):
                 print(f"{anomaly_type} model features: {models[anomaly_type].feature_names_in_}")
@@ -114,7 +108,7 @@ async def train_model(anomaly_type: str, file: UploadFile = File(...)):
                 for page in reader.pages:
                     text += page.extract_text() + "\n"
             if anomaly_type == "spam":
-                df = pd.DataFrame({'text': text.split('\n'), 'label': [0] * len(text.split('\n'))})
+                df = pd.DataFrame({'text': text.split('\n'), 'label': [1] * len(text.split('\n'))})
             else:
                 df = pd.read_csv(StringIO(text))
         elif filename.endswith(".zip"):
@@ -174,20 +168,115 @@ async def predict_anomaly(anomaly_type: str, file: UploadFile = File(...)):
 
     try:
         if anomaly_type == "weather":
-            encodings = ['utf-8', 'utf-8-sig', 'latin1', 'cp1252', 'iso-8859-1']
-            df = None
-            for enc in encodings:
+            if filename.endswith(".csv"):
+                encodings = ['utf-8', 'utf-8-sig', 'latin1', 'cp1252', 'iso-8859-1']
+                df = None
+                for enc in encodings:
+                    try:
+                        df = pd.read_csv(StringIO(contents.decode(enc)), header=None, on_bad_lines='skip', engine='python')
+                        break
+                    except (UnicodeDecodeError, pd.errors.ParserError):
+                        continue
+                if df is None:
+                    raise HTTPException(status_code=400, detail="Unable to decode the file. Please ensure it is a valid CSV file with text encoding.")
+            elif filename.endswith(".pdf"):
+                import tempfile
                 try:
-                    df = pd.read_csv(StringIO(contents.decode(enc)), header=None, on_bad_lines='skip', engine='python')
-                    break
-                except (UnicodeDecodeError, pd.errors.ParserError):
-                    continue
-            if df is None:
-                raise HTTPException(status_code=400, detail="Unable to decode the file. Please ensure it is a valid CSV file with text encoding.")
+                    import tabula
+                except ImportError:
+                    raise HTTPException(status_code=500, detail="tabula-py module not installed. Please install it to process PDF files.")
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
+                    tmp_pdf.write(contents)
+                    tmp_pdf.flush()
+                    df = None
+                    try:
+                        dfs = tabula.read_pdf(tmp_pdf.name, pages='all', multiple_tables=True)
+                        if dfs:
+                            df = dfs[0]  # Take the first table
+                            print(f"Successfully extracted table from PDF using tabula-py")
+                    except Exception as e:
+                        print(f"Tabula exception: {type(e).__name__}: {str(e)}")
+                        print("Falling back to PyPDF2 text extraction")
+                    if df is None:
+                        try:
+                            import PyPDF2
+                            reader = PyPDF2.PdfReader(tmp_pdf.name)
+                            text = ""
+                            for page in reader.pages:
+                                text += page.extract_text() + "\n"
+                            if not text.strip():
+                                raise HTTPException(status_code=400, detail="PDF contains no extractable text. Please ensure the PDF is text-based.")
+                            print(f"Extracted text length: {len(text)}, first 200 chars: {text[:200]}")
+                            df = pd.read_csv(StringIO(text), header=None, sep=r'\s+', on_bad_lines='skip', engine='python')
+                            print(f"df shape: {df.shape}, columns: {df.columns.tolist()}")
+                            print(f"Successfully parsed PDF text as CSV using PyPDF2")
+                        except ImportError:
+                            raise HTTPException(status_code=500, detail="PyPDF2 module not installed for fallback PDF processing.")
+                        except Exception as e:
+                            print(f"PyPDF2 fallback exception: {type(e).__name__}: {str(e)}")
+                            raise HTTPException(status_code=400, detail="Unable to parse PDF as CSV. Please ensure the PDF contains tabular data in text form.")
+                    if df is None:
+                        raise HTTPException(status_code=400, detail="No tables found in PDF. Please ensure the PDF contains tabular data.")
+            else:
+                raise HTTPException(status_code=400, detail="Unsupported file type for weather. Please upload CSV or PDF.")
             if len(df.columns) >= 3:
                 df.columns = ['temperature', 'humidity', 'pressure'] + list(df.columns[3:])
             else:
                 raise HTTPException(status_code=400, detail="Weather data must have at least 3 columns (temperature, humidity, pressure)")
+        elif anomaly_type == "spam" and filename.endswith(".pdf"):
+            import tempfile
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
+                tmp_pdf.write(contents)
+                tmp_pdf.flush()
+                df = None
+                try:
+                    import tabula
+                    dfs = tabula.read_pdf(tmp_pdf.name, pages='all', multiple_tables=True)
+                    if dfs:
+                        df = dfs[0]  # Take the first table
+                        print(f"Successfully extracted table from PDF using tabula-py")
+                        if 'Message Content' in df.columns:
+                            df = df[['Message Content']].rename(columns={'Message Content': 'text'})
+                        else:
+                            # Assume first column is text
+                            df = df.iloc[:, [0]].rename(columns={df.columns[0]: 'text'})
+                except ImportError:
+                    print("tabula-py not installed, falling back to PyPDF2")
+                except Exception as e:
+                    print(f"Tabula exception: {type(e).__name__}: {str(e)}")
+                    print("Falling back to PyPDF2 text extraction")
+                if df is None:
+                    try:
+                        import PyPDF2
+                        reader = PyPDF2.PdfReader(tmp_pdf.name)
+                        text = ""
+                        for page in reader.pages:
+                            text += page.extract_text() + "\n"
+                        if not text.strip():
+                            raise HTTPException(status_code=400, detail="PDF contains no extractable text. Please ensure the PDF is text-based.")
+                        
+                        # Parse the text as tabular data
+                        df = pd.read_csv(StringIO(text), header=None, sep=r'\s+', on_bad_lines='skip', engine='python')
+                        print(f"df shape: {df.shape}, columns: {df.columns.tolist()}")
+                        print(f"Successfully parsed PDF text as CSV using PyPDF2")
+                        if df.shape[1] >= 2:
+                            df.columns = ['ID', 'text'] + list(df.columns[2:])
+                            df = df[['text']]
+                        else:
+                            df = pd.DataFrame({'text': text.split('\n')})
+                    except ImportError:
+                        raise HTTPException(status_code=500, detail="PyPDF2 module not installed for PDF processing.")
+                    except Exception as e:
+                        print(f"PyPDF2 fallback exception: {type(e).__name__}: {str(e)}")
+                        raise HTTPException(status_code=400, detail="Unable to parse PDF. Please ensure the PDF contains text or tabular data.")
+            if df is None:
+                raise HTTPException(status_code=400, detail="No data found in PDF. Please ensure the PDF contains tabular data or text.")
+        elif anomaly_type == "spam" and filename.endswith(".csv"):
+            df = pd.read_csv(StringIO(contents.decode("utf-8")))
+            if 'text' in df.columns:
+                df = df[['text']]
+            else:
+                df.columns = ['text']
         elif filename.endswith(".csv"):
             try:
                 df = pd.read_csv(StringIO(contents.decode("utf-8")))
@@ -229,7 +318,9 @@ async def predict_anomaly(anomaly_type: str, file: UploadFile = File(...)):
         else:
             raise HTTPException(status_code=400, detail="Unsupported file type. Please upload CSV, PDF, or ZIP.")
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error reading file: {str(e)}")
+        error_msg = getattr(e, 'detail', None) or str(e) or "Unknown error occurred while reading the file."
+        print(f"Exception: {type(e).__name__}: {error_msg}")
+        raise HTTPException(status_code=400, detail=f"Error reading file: {error_msg}")
 
     model = models[anomaly_type]
 
@@ -254,28 +345,32 @@ async def predict_anomaly(anomaly_type: str, file: UploadFile = File(...)):
     if anomaly_type == "network":
         result = predict_network_anomaly(model, df)
         detailed_result = {
-            "Point Anomalies": result.get("point_anomalies", []),
-            "Contextual Anomalies": result.get("contextual_anomalies", []),
-            "Collective Anomalies": result.get("collective_anomalies", []),
-            "Novelty Detection": result.get("novelty_detection", [])
+            "Point Anomalies": [bool(x) for x in result.get("Point Anomalies", [])],
+            "Contextual Anomalies": [bool(x) for x in result.get("Contextual Anomalies", [])],
+            "Collective Anomalies": [bool(x) for x in result.get("Collective Anomalies", [])],
+            "Novelty Detection": [bool(x) for x in result.get("Novelty Detection", [])],
+            "scores": [float(x) for x in result.get("scores", [])],
+            "is_anomaly": [bool(x) for x in result.get("is_anomaly", [])]
         }
         return {"result": detailed_result}
     elif anomaly_type == "weather":
         result = predict_weather_anomaly(model, df)
         detailed_result = {
-            "Point Anomalies": result.get("Point Anomalies", []),
-            "Contextual Anomalies": result.get("Contextual Anomalies", []),
-            "Collective Anomalies": result.get("Collective Anomalies", []),
-            "Novelty Detection": result.get("Novelty Detection", [])
+            "Point Anomalies": [bool(x) for x in result.get("Point Anomalies", [])],
+            "Contextual Anomalies": [bool(x) for x in result.get("Contextual Anomalies", [])],
+            "Collective Anomalies": [bool(x) for x in result.get("Collective Anomalies", [])],
+            "Novelty Detection": [bool(x) for x in result.get("Novelty Detection", [])]
         }
         return {"result": detailed_result}
     elif anomaly_type == "spam":
         result = predict_spam(model, df)
         detailed_result = {
-            "Point Anomalies": result.get("point_anomalies", []),
-            "Contextual Anomalies": result.get("contextual_anomalies", []),
-            "Collective Anomalies": result.get("collective_anomalies", []),
-            "Novelty Detection": result.get("novelty_detection", [])
+            "Point Anomalies": result.get("Point Anomalies", []),
+            "Contextual Anomalies": result.get("Contextual Anomalies", []),
+            "Collective Anomalies": result.get("Collective Anomalies", []),
+            "Novelty Detection": result.get("Novelty Detection", []),
+            "scores": result.get("scores", []),
+            "is_anomaly": result.get("is_anomaly", [])
         }
         return {"result": detailed_result}
     else:
@@ -320,7 +415,19 @@ async def websocket_anomaly(websocket: WebSocket, anomaly_type: str):
             await websocket.send_json({"error": str(e)})
         except Exception:
             pass
-        await websocket.close()
+        # Do not close here, as the connection may already be closed
+
+from fastapi import Request
+
+@app.post("/generate/pdf")
+async def generate_pdf_endpoint(request: Request):
+    data = await request.json()
+    anomaly_type = data.get("anomalyType")
+    result_data = data.get("resultData")
+    anomalies = data.get("anomalies")
+    pdf_bytes = generate_anomaly_report_pdf(anomaly_type, result_data, anomalies)
+    from fastapi.responses import StreamingResponse
+    return StreamingResponse(io.BytesIO(pdf_bytes), media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=anomaly_report_{anomaly_type}.pdf"})
 
 from fastapi.responses import RedirectResponse
 
@@ -334,18 +441,6 @@ app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
 @app.get("/")
 async def root():
     return RedirectResponse(url="/static/index.html")
-
-from fastapi import Request
-
-@app.post("/generate/pdf")
-async def generate_pdf_endpoint(request: Request):
-    data = await request.json()
-    anomaly_type = data.get("anomalyType")
-    result_data = data.get("resultData")
-    anomalies = data.get("anomalies")
-    pdf_bytes = generate_anomaly_report_pdf(anomaly_type, result_data, anomalies)
-    from fastapi.responses import StreamingResponse
-    return StreamingResponse(io.BytesIO(pdf_bytes), media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=anomaly_report_{anomaly_type}.pdf"})
 
 @app.post("/detect/network/realtime", response_model=AnomalyResult)
 async def detect_network_realtime(data: NetworkData):

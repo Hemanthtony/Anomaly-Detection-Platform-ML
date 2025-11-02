@@ -177,15 +177,7 @@
     </ul>
   </section>
 
-  <section class="data-input" style="background: #1e293b; border-radius: 1rem; padding: 2rem; box-shadow: 0 6px 18px rgba(59, 130, 246, 0.5); max-width: 1200px; width: 100%; margin-top: 2rem;">
-    <h3 style="color: #22d3ee; margin-bottom: 1rem; font-weight: 700; font-size: 1.75rem; letter-spacing: 0.03em; text-align: center;">Manual Data Input</h3>
-    <form id="dataForm">
-      <div id="inputFields">
-        <!-- Dynamic fields based on anomaly type -->
-      </div>
-      <button type="submit" style="background: linear-gradient(90deg, #3b82f6, #8b5cf6); border: none; border-radius: 0.75rem; padding: 0.75rem 1.5rem; color: white; font-weight: 700; font-size: 1.125rem; cursor: pointer; box-shadow: 0 6px 16px rgba(59, 130, 246, 0.7); transition: background 0.3s ease;">Send Data</button>
-    </form>
-  </section>
+
 
   <script>
     // Get data from localStorage
@@ -203,7 +195,7 @@
     };
 
     if (anomalyType === 'pdf') {
-      anomalies = resultData.anomalies || [];
+      anomalies = resultData || [];
       // Count by type
       anomalies.forEach(anomaly => {
         const mappedType = typeMapping[anomaly.type] || anomaly.type;
@@ -240,7 +232,8 @@
             data: [],
             borderColor: '#06b6d4',
             backgroundColor: 'rgba(6, 182, 212, 0.1)',
-            fill: true
+            fill: true,
+            pointBackgroundColor: []
           }]
         },
         options: {
@@ -290,15 +283,17 @@
       });
     }
 
-    function updateCharts(score, type) {
+    function updateCharts(score, type, is_anomaly = false) {
       // Update line chart
       if (lineChart.data.labels.length >= 20) {
         lineChart.data.labels.shift();
         lineChart.data.datasets[0].data.shift();
+        lineChart.data.datasets[0].pointBackgroundColor.shift();
       }
       const newLabel = new Date().toLocaleTimeString();
       lineChart.data.labels.push(newLabel);
       lineChart.data.datasets[0].data.push(score);
+      lineChart.data.datasets[0].pointBackgroundColor.push(is_anomaly ? '#ef4444' : '#06b6d4');
       lineChart.update();
 
       // Update bar chart and pie chart counts
@@ -324,6 +319,20 @@
       addAnomalyToList(anomaly.type, anomaly.description);
     });
 
+    // Populate line chart with initial scores for non-pdf types
+    if (anomalyType !== 'pdf' && resultData.scores) {
+      resultData.scores.forEach((score, index) => {
+        lineChart.data.labels.push(`Row ${index + 1}`);
+        lineChart.data.datasets[0].data.push(score);
+        if (resultData.is_anomaly && resultData.is_anomaly[index]) {
+          lineChart.data.datasets[0].pointBackgroundColor.push('#ef4444');
+        } else {
+          lineChart.data.datasets[0].pointBackgroundColor.push('#06b6d4');
+        }
+      });
+      lineChart.update();
+    }
+
     if (anomalyType === 'pdf') {
       // Populate line chart with sample scores for each anomaly
       anomalies.forEach((anomaly, index) => {
@@ -331,6 +340,7 @@
         const label = `Anomaly ${index + 1}`;
         lineChart.data.labels.push(label);
         lineChart.data.datasets[0].data.push(score);
+        lineChart.data.datasets[0].pointBackgroundColor.push(score < 0 ? '#ef4444' : '#06b6d4');
       });
       lineChart.update();
     } else {
@@ -364,7 +374,7 @@
         }
         console.log('Received:', data);
         const type = anomalyType.charAt(0).toUpperCase() + anomalyType.slice(1);
-        updateCharts(data.score, type);
+        updateCharts(data.score, type, data.is_anomaly);
         if (data.is_anomaly) {
           addAnomalyToList(type, data.details);
         }
@@ -379,40 +389,7 @@
       };
     }
 
-    // Create input fields based on anomaly type
-    const inputFields = document.getElementById('inputFields');
-    if (anomalyType === 'spam') {
-      inputFields.innerHTML = `
-        <label for="textInput" style="display: block; margin-bottom: 0.5rem; color: #e0e7ff;">Text:</label>
-        <input type="text" id="textInput" placeholder="Enter text to check for spam" style="width: 100%; padding: 0.5rem; border: 1px solid #334155; border-radius: 0.5rem; background: #1e293b; color: #e0e7ff;" required>
-      `;
-    } else {
-      inputFields.innerHTML = `
-        <label style="display: block; margin-bottom: 0.5rem; color: #e0e7ff;">Features (comma-separated numbers):</label>
-        <input type="text" id="featuresInput" placeholder="e.g., 1.2, 3.4, 5.6, 7.8, 9.0" style="width: 100%; padding: 0.5rem; border: 1px solid #334155; border-radius: 0.5rem; background: #1e293b; color: #e0e7ff;" required>
-      `;
-    }
 
-    // Handle form submission
-    if (anomalyType !== 'pdf') {
-      document.getElementById('dataForm').addEventListener('submit', (e) => {
-        e.preventDefault();
-        let dataToSend;
-        if (anomalyType === 'spam') {
-          const text = document.getElementById('textInput').value;
-          dataToSend = { text };
-        } else {
-          const featuresStr = document.getElementById('featuresInput').value;
-          const features = featuresStr.split(',').map(f => parseFloat(f.trim())).filter(f => !isNaN(f));
-          if (features.length === 0) {
-            alert('Please enter valid numbers separated by commas.');
-            return;
-          }
-          dataToSend = { features };
-        }
-        ws.send(JSON.stringify(dataToSend));
-      });
-    }
 
     async function downloadPdfReport() {
       try {

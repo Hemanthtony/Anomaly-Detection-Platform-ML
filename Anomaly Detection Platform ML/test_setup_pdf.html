@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Setup PDF</title>
+</head>
+<body>
+    <script>
+        localStorage.setItem('anomalyType', 'pdf');
+        localStorage.setItem('resultData', JSON.stringify({
+            anomalies: [
+                {type: 'Point Anomaly', description: 'Test anomaly 1'},
+                {type: 'Contextual Anomaly', description: 'Test anomaly 2'},
+                {type: 'Collective Anomaly', description: 'Test anomaly 3'},
+                {type: 'Novelty Detection', description: 'Test anomaly 4'}
+            ]
+        }));
+        window.location = 'anomaly_results.html';
+    </script>
+</body>
+</html>

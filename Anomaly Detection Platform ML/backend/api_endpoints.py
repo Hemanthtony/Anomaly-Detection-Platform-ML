@@ -50,13 +50,20 @@ async def detect_spam(data: SpamData):
 async def detect_pdf_anomaly(file: UploadFile = File(...)):
     # Placeholder logic for PDF anomaly detection
     # In a real implementation, you would process the PDF file here
-    # For now, return mock anomaly data
-    anomalies = [
-        {"type": "Point Anomaly", "description": "Spike in data at page 5"},
-        {"type": "Contextual Anomaly", "description": "Unusual pattern in section 3"},
-        {"type": "Collective Anomaly", "description": "Group behavior anomaly in table 2"},
-        {"type": "Novelty Detection", "description": "New pattern detected in graph"}
-    ]
+    # For now, return mock anomaly data with varying counts
+    import random
+    types = ["Point Anomaly", "Contextual Anomaly", "Collective Anomaly", "Novelty Detection"]
+    anomalies = []
+    for _ in range(random.randint(4, 10)):
+        anomaly_type = random.choice(types)
+        descriptions = {
+            "Point Anomaly": ["Spike in data at page {}".format(random.randint(1, 20)), "Outlier value detected"],
+            "Contextual Anomaly": ["Unusual pattern in section {}".format(random.randint(1, 10)), "Context mismatch"],
+            "Collective Anomaly": ["Group behavior anomaly in table {}".format(random.randint(1, 5)), "Collective deviation"],
+            "Novelty Detection": ["New pattern detected in graph", "Unseen data point"]
+        }
+        desc = random.choice(descriptions[anomaly_type])
+        anomalies.append({"type": anomaly_type, "description": desc})
     return PDFResult(anomalies=anomalies)
 
 @app.post("/predict/network")
@@ -81,14 +88,23 @@ async def predict_spam(file: UploadFile = File(...)):
     if file.filename.endswith('.csv'):
         contents = await file.read()
         df = pd.read_csv(io.StringIO(contents.decode('utf-8')))
-        from .app import models, predict_spam as predict_func
-        model = models.get("spam")
-        if model is None:
-            raise HTTPException(status_code=400, detail="Spam model not trained yet")
-        result = predict_func(model, df)
-        return {"result": result}
+    elif file.filename.endswith('.pdf'):
+        contents = await file.read()
+        from PyPDF2 import PdfReader
+        reader = PdfReader(io.BytesIO(contents))
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() + "\n"
+        lines = [line.strip() for line in text.split('\n') if line.strip()]
+        df = pd.DataFrame({'text': lines})
     else:
-        raise HTTPException(status_code=400, detail="Only CSV files are supported for spam detection")
+        raise HTTPException(status_code=400, detail="Only CSV or PDF files are supported for spam detection")
+    from .app import models, predict_spam as predict_func
+    model = models.get("spam")
+    if model is None:
+        raise HTTPException(status_code=400, detail="Spam model not trained yet")
+    result = predict_func(model, df)
+    return {"result": result}
 
 @app.post("/predict/weather")
 async def predict_weather(file: UploadFile = File(...)):
